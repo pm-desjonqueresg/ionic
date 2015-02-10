@@ -429,6 +429,13 @@ ionic.views.Scroll = ionic.views.View.inherit({
     self.__scrollLeft = self.options.startX;
     self.__scrollTop = self.options.startY;
 
+    if (self.options.scrollingX) {
+      self.__content.classList.add('scroll-x');
+    }
+    if (self.options.scrollingY) {
+      self.__content.classList.add('scroll-y');
+    }
+
     // Get the render update function, initialize event handlers,
     // and calculate the size of the scroll container
     self.__callback = self.getRenderFn();
@@ -712,6 +719,24 @@ ionic.views.Scroll = ionic.views.View.inherit({
       }];
     }
 
+    /**
+     * Scroll view has ancestor element with another scroll direction?
+     *
+     * @returns {Boolean}
+     */
+    function hasAncestorScrollWithDifferentDirection() {
+      if (self.options.scrollingX && self.options.scrollingY) {
+        return false;
+      }
+      if (self.options.scrollingX && ionic.DomUtil.getParentWithClass(self.__container, 'scroll-y')) {
+        return true;
+      }
+      if (self.options.scrollingY && ionic.DomUtil.getParentWithClass(self.__container, 'scroll-x')) {
+        return true;
+      }
+      return false;
+    }
+
     self.touchStart = function(e) {
       self.startCoordinates = ionic.tap.pointerCoord(e);
 
@@ -732,7 +757,12 @@ ionic.views.Scroll = ionic.views.View.inherit({
       self.__enableScrollY = true;
       self.__hasStarted = true;
       self.doTouchStart(getEventTouches(e), e.timeStamp);
-      e.preventDefault();
+
+      // Disable default event action only if not have ancestor node with scroll.
+      // When event propagation into ancestor node, then preventDefault() will be performed.
+      if (!hasAncestorScrollWithDifferentDirection()) {
+        e.preventDefault();
+      }
     };
 
     self.touchMove = function(e) {
@@ -830,7 +860,7 @@ ionic.views.Scroll = ionic.views.View.inherit({
         }
         self.doTouchStart(getEventTouches(e), e.timeStamp);
 
-        if ( !ionic.tap.isTextInput(e.target) ) {
+        if ( !ionic.tap.isTextInput(e.target) && !hasAncestorScrollWithDifferentDirection() ) {
           e.preventDefault();
         }
         mousedown = true;
@@ -920,6 +950,13 @@ ionic.views.Scroll = ionic.views.View.inherit({
 
     container.removeEventListener('scrollChildIntoView', self.scrollChildIntoView);
     container.removeEventListener('resetScrollView', self.resetScrollView);
+
+    if (self.options.scrollingX) {
+      self.__content.classList.remove('scroll-x');
+    }
+    if (self.options.scrollingY) {
+      self.__content.classList.remove('scroll-y');
+    }
 
     ionic.tap.removeClonedInputs(container, self);
 
@@ -1776,7 +1813,10 @@ ionic.views.Scroll = ionic.views.View.inherit({
         }
       }
 
-      if (self.__enableScrollX) {
+      var mX = Math.abs(moveX * self.options.speedMultiplier),
+          mY = Math.abs(moveY * self.options.speedMultiplier);
+
+      if (self.__enableScrollX && mX >= mY) {
 
         scrollLeft -= moveX * self.options.speedMultiplier;
         var maxScrollLeft = self.__maxScrollLeft;
@@ -1801,7 +1841,7 @@ ionic.views.Scroll = ionic.views.View.inherit({
       }
 
       // Compute new vertical scroll position
-      if (self.__enableScrollY) {
+      if (self.__enableScrollY && mY > mX) {
 
         scrollTop -= moveY * self.options.speedMultiplier;
         var maxScrollTop = self.__maxScrollTop;
